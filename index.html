@@ -481,14 +481,14 @@
       const d = await r.json();
       if(d.result==="success" && d.rates && d.rates[to]){
         const u = d.time_last_update_utc ? d.time_last_update_utc.replace(/ \d{2}:\d{2}.*$/,"") : "today";
-        return { mid:d.rates[to], updated:u };
+        return { mid:d.rates[to], usdRate:d.rates.USD, updated:u };
       }
     }catch(e){}
     try{ // fallback: fawazahmed0 currency-api via jsDelivr
       const f = from.toLowerCase(), t = to.toLowerCase();
       const r = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${f}.json`);
       const d = await r.json();
-      if(d[f] && d[f][t] != null) return { mid:d[f][t], updated:(d.date||"recently")+" · backup source" };
+      if(d[f] && d[f][t] != null) return { mid:d[f][t], usdRate:d[f].usd, updated:(d.date||"recently")+" · backup source" };
     }catch(e){}
     return null;
   }
@@ -498,8 +498,13 @@
     const from = $("from").value, to = $("to").value;
     statusEl.classList.remove("err");
 
-    if(!amount || amount<=0){ statusEl.textContent="Enter an amount greater than 0."; $("results").style.display="none"; return; }
-    if(from===to){ statusEl.textContent="Pick two different currencies."; $("results").style.display="none"; return; }
+    const invalid = (msg)=>{
+      statusEl.textContent = msg;
+      $("results").style.display = "none";
+      ["raceAmtC","raceAmtF","raceAmtS"].forEach(id=>{ $(id).textContent = "—"; });
+    };
+    if(!amount || amount<=0){ invalid("Enter an amount greater than 0."); return; }
+    if(from===to){ invalid("Pick two different currencies."); return; }
 
     const btn = $("compareBtn");
     btn.disabled = true; btn.classList.add("loading");
@@ -509,7 +514,7 @@
     const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
     const [res] = await Promise.all([ fetchRate(from,to), sleep(750) ]);
-    if(!res){
+    if(!res || !res.usdRate){
       statusEl.classList.add("err");
       statusEl.textContent = snap
         ? "Couldn't refresh the rate — showing your last result. Check connection and retry."
@@ -517,17 +522,18 @@
       stopLoading();
       return;
     }
-    snap = { mid:res.mid, from, to, amount, updated:res.updated };
+    snap = { mid:res.mid, usdRate:res.usdRate, from, to, amount, updated:res.updated };
     statusEl.textContent = "";
     render(true);
     stopLoading();
   }
 
   // Build provider rows; crypto margin comes from the off-ramp spread slider.
-  function buildRows(amount, mid, cryptoSpread){
+  // Flat fees are defined in USD and converted to the send currency (usdRate = USD per 1 FROM).
+  function buildRows(amount, mid, usdRate, cryptoSpread){
     return PROVIDERS.map(p=>{
       const margin = p.type==="crypto" ? cryptoSpread : p.marginPct;
-      const fee = ("feeFlat" in p) ? p.feeFlat : amount*(p.feePct/100);
+      const fee = ("feeFlat" in p) ? p.feeFlat/usdRate : amount*(p.feePct/100);
       const providerRate = mid*(1 - margin/100);
       const received = Math.max(0,(amount-fee)*providerRate);
       const lostVsReal = (amount*mid) - received;
@@ -537,11 +543,11 @@
 
   function render(animate){
     if(!snap) return;
-    const { mid, from, to, amount, updated } = snap;
+    const { mid, usdRate, from, to, amount, updated } = snap;
     const cryptoSpread = parseFloat($("spread").value);
     $("spreadVal").textContent = cryptoSpread.toFixed(1) + "%";
 
-    const rows = buildRows(amount, mid, cryptoSpread);
+    const rows = buildRows(amount, mid, usdRate, cryptoSpread);
     rows.sort((a,b)=>b.received-a.received); // best first
     const best = rows[0], worst = rows[rows.length-1];
     const bestFiat = rows.find(r=>r.type==="fiat");
