@@ -403,7 +403,7 @@
     </section>
 
     <p class="disclaimer" id="disclaimer">
-      Fiat fees and margins are approximate and vary by amount, payment method and promotions. USDT figures assume a stablecoin pegged 1:1 to USD with a ~0.5% on/off-ramp spread plus each chain's typical 2026 network fee — Plasma sponsors gas for zero-fee USDT transfers; Solana, Arbitrum and Monad are sub-cent; Tron ≈ $2; Ethereum ≈ $1.50–15 depending on gas. Because network fees are now tiny, the off-ramp spread (converting USDT to local cash) dominates crypto cost, and that spread varies by exchange, P2P market, KYC and corridor. Crypto also carries volatility, custody and regulatory considerations that fiat doesn't. The USDT off-ramp spread is adjustable in the calculator — set it to your corridor's real rate. Verify with each provider before sending. Live mid-market rates from open.er-api.com (with a backup source). remit is an independent comparison tool, not affiliated with any provider listed.
+      Fiat fees and margins are approximate and vary by amount, payment method and promotions. USDT figures assume a stablecoin pegged 1:1 to USD with a ~0.5% on/off-ramp spread plus each chain's typical 2026 network fee — Plasma sponsors gas for zero-fee USDT transfers; Solana, Arbitrum and Monad (USDC — Monad has no USDT) are sub-cent; Tron ≈ $2; Ethereum ≈ $1.50–15 depending on gas. Because network fees are now tiny, the off-ramp spread (converting USDT to local cash) dominates crypto cost, and that spread varies by exchange, P2P market, KYC and corridor. Crypto also carries volatility, custody and regulatory considerations that fiat doesn't. The USDT off-ramp spread is adjustable in the calculator — set it to your corridor's real rate. Verify with each provider before sending. Live mid-market rates from open.er-api.com (with a backup source). remit is an independent comparison tool, not affiliated with any provider listed.
     </p>
   </div>
 
@@ -427,7 +427,7 @@
       <li><strong>Bank wire</strong> — ~4% margin + $30</li>
     </ul>
     <h4>Crypto (USDT) assumptions</h4>
-    <p>USDT is pegged ~1:1 to USD, so a transfer tracks the real cross-rate. Cost = the chain's network fee (Plasma ~free; Solana, Arbitrum, Monad sub-cent; Tron ≈ $2; Ethereum ≈ $1.50–15) plus an <strong>off-ramp spread</strong> to cash out into local currency — that's the slider in the calculator, defaulted to 0.5%. Set it to your corridor's real P2P/exchange rate to see the honest comparison.</p>
+    <p>USDT is pegged ~1:1 to USD, so a transfer tracks the real cross-rate. Cost = the chain's network fee (Plasma ~free; Solana, Arbitrum, Monad sub-cent — Monad uses USDC, as it has no USDT; Tron ≈ $2; Ethereum ≈ $1.50–15) plus an <strong>off-ramp spread</strong> to cash out into local currency — that's the slider in the calculator, defaulted to 0.5%. Set it to your corridor's real P2P/exchange rate to see the honest comparison.</p>
     <div class="caution"><span class="approx-badge">Heads up</span> Crypto isn't risk-free. Off-ramp spreads in restricted corridors can be far higher than 0.5%, and USDT involves exchange/P2P trust, KYC, edge volatility, and a legal status that varies by country. Check what's legal and available where you are before relying on it.</div>
     <h4>Sources</h4>
     <p>Rates: <a href="https://open.er-api.com" target="_blank" rel="noopener">open.er-api.com</a> with a <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">currency-api</a> fallback. Provider norms: published Wise, Remitly, Western Union and Xoom fee guides, and 2026 USDT network-fee comparisons.</p>
@@ -437,7 +437,7 @@
 
 <script>
   // ---- Providers: fiat + USDT crypto ----
-  // USDT ≈ 1 USD, so a FROM→USDT→TO transfer tracks the real cross-rate;
+  // USDT/USDC ≈ 1 USD, so a FROM→USDT→TO transfer tracks the real cross-rate;
   // we model it as a low margin (on/off-ramp spread) + a low flat network fee.
   const PROVIDERS = [
     // Fiat values reflect researched 2026 norms. Wise genuinely uses the
@@ -451,7 +451,7 @@
     { name:"USDT · Plasma",   feeFlat:0.0,  marginPct:0.5, type:"crypto" },
     { name:"USDT · Solana",   feeFlat:0.10, marginPct:0.5, type:"crypto" },
     { name:"USDT · Arbitrum", feeFlat:0.10, marginPct:0.5, type:"crypto" },
-    { name:"USDT · Monad",    feeFlat:0.05, marginPct:0.5, type:"crypto" },
+    { name:"USDC · Monad",    feeFlat:0.05, marginPct:0.5, type:"crypto" },
     { name:"USDT · Tron",     feeFlat:2.0,  marginPct:0.5, type:"crypto" },
     { name:"USDT · Ethereum", feeFlat:3.0,  marginPct:0.5, type:"crypto" }
   ];
