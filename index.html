@@ -500,6 +500,7 @@
 
     const invalid = (msg)=>{
       statusEl.textContent = msg;
+      snap = null; // so the spread slider can't re-render the previous result
       $("results").style.display = "none";
       ["raceAmtC","raceAmtF","raceAmtS"].forEach(id=>{ $(id).textContent = "—"; });
     };
@@ -542,10 +543,10 @@
   }
 
   function render(animate){
-    if(!snap) return;
-    const { mid, usdRate, from, to, amount, updated } = snap;
     const cryptoSpread = parseFloat($("spread").value);
     $("spreadVal").textContent = cryptoSpread.toFixed(1) + "%";
+    if(!snap) return;
+    const { mid, usdRate, from, to, amount, updated } = snap;
 
     const rows = buildRows(amount, mid, usdRate, cryptoSpread);
     rows.sort((a,b)=>b.received-a.received); // best first
