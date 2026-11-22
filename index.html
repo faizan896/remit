@@ -227,6 +227,12 @@
     .bar-fill{transition:none}
   }
 
+  .mode{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:var(--card-mute);margin-top:14px}
+  .mode button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);padding:7px 14px;border-radius:999px;cursor:pointer}
+  .mode button.on{background:var(--accent);color:var(--on-accent)}
+  .field.wide{grid-column:span 2}
+  body.domestic .intl-only, body:not(.domestic) .dom-only{display:none}
+
   /* ---- responsive ---- */
   @media (max-width:820px){
     .calc-grid{grid-template-columns:1fr 1fr}
@@ -238,6 +244,7 @@
   }
   @media (max-width:460px){
     .calc-grid{grid-template-columns:1fr}
+    .field.wide{grid-column:auto}
   }
 </style>
 </head>
@@ -256,7 +263,7 @@
   </header>
 
   <!-- Delivery race: how fast money arrives + how much (driven by live results) -->
-  <section class="card race" aria-hidden="true">
+  <section class="card race intl-only" aria-hidden="true">
     <div class="card-h">
       <svg class="ic" viewBox="0 0 24 24"><path d="M12 6v6l4 2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/></svg>
       How fast it arrives — and how much
@@ -302,12 +309,20 @@
       <svg class="ic" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Transfer details
     </div>
+    <div class="mode" role="group" aria-label="Transfer type">
+      <button type="button" id="modeIntl" class="on">International</button>
+      <button type="button" id="modeDom">Domestic</button>
+    </div>
     <div class="calc-grid">
       <div class="field amt">
         <label for="amount">You send</label>
         <input id="amount" type="number" min="1" step="any" value="1000" inputmode="decimal" />
       </div>
-      <div class="field">
+      <div class="field wide dom-only">
+        <label for="country">Country</label>
+        <select id="country"></select>
+      </div>
+      <div class="field intl-only">
         <label for="from">From</label>
         <select id="from">
           <optgroup label="Popular">
@@ -322,7 +337,7 @@
           </optgroup>
         </select>
       </div>
-      <div class="field">
+      <div class="field intl-only">
         <label for="to">To</label>
         <select id="to">
           <optgroup label="Asia">
@@ -390,7 +405,7 @@
         <div class="verdict" id="recoVerdict">—</div>
         <div class="detail" id="recoDetail"></div>
         <div class="vs">
-          <div><div class="k">Best fiat</div><div class="v" id="vsFiat">—</div></div>
+          <div><div class="k" id="vsFiatK">Best fiat</div><div class="v" id="vsFiat">—</div></div>
           <div><div class="k">Best crypto</div><div class="v" id="vsCrypto">—</div></div>
         </div>
       </div>
@@ -402,7 +417,7 @@
         Ranked by what arrives
         <span class="pill right" id="ratePill"></span>
       </div>
-      <div class="rl-meta">Bars show what's lost to fees + FX margin vs the real mid-market rate — shorter is better.</div>
+      <div class="rl-meta" id="rlMeta">Bars show what's lost to fees + FX margin vs the real mid-market rate — shorter is better.</div>
       <div class="approx" id="approxNote"></div>
       <div class="rows" id="rows"></div>
     </section>
@@ -436,6 +451,8 @@
     <h4>Crypto (USDT) assumptions</h4>
     <p>USDT is pegged ~1:1 to USD, so a transfer tracks the real cross-rate. Cost = the chain's network fee (Plasma ~free; Solana, Arbitrum, Monad sub-cent — Monad uses USDC, as it has no USDT; Tron ≈ $2; Ethereum ≈ $1.50–15) plus two costs you can adjust in the calculator: the <strong>cost to buy the stablecoin</strong> with your money (default 1%) and an <strong>off-ramp spread</strong> to cash out into local currency (default 0.5%). Set both to your corridor's real exchange/P2P rates to see the honest comparison.</p>
     <div class="caution"><span class="approx-badge">Heads up</span> Crypto isn't risk-free. Off-ramp spreads in restricted corridors can be far higher than 0.5%, and USDT involves exchange/P2P trust, KYC, edge volatility, and a legal status that varies by country. Check what's legal and available where you are before relying on it.</div>
+    <h4>Domestic mode</h4>
+    <p>Domestic transfers have no exchange rate, so the only cost is the fee. For each of 21 countries we list the main local rails (instant payment, bank transfer, mobile wallet) with a typical or regulated sender fee, and compare them with buying a stablecoin, sending it, and cashing out in the same currency. <strong>All domestic fees are estimates</strong>: fees differ by bank, account type and monthly free allowances, and no live feed exists. Each row shows the basis for its fee. Cash-out agent fees are only included where the row says so.</p>
     <h4>Sources</h4>
     <p>Rates: <a href="https://open.er-api.com" target="_blank" rel="noopener">open.er-api.com</a> with a <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">currency-api</a> fallback. Fiat quotes: Wise comparison service. Fallback provider norms: published Wise, Remitly, Western Union and Xoom fee guides, and 2026 USDT network-fee comparisons.</p>
   </details>
@@ -463,19 +480,94 @@
     { name:"USDT · Ethereum", feeFlat:3.0,  marginPct:0.5, type:"crypto" }
   ];
 
+  // ---- Domestic rails: sender fee in local currency for amount a. All are estimates. ----
+  const pct = (p,min=0,max=Infinity)=>(a)=>Math.min(max, Math.max(min, a*p/100));
+  const flat = (f)=>()=>f;
+  const tiers = (t)=>(a)=>(t.find(([max])=>a<=max) || t[t.length-1])[1]; // [[up to, fee], …]
+  const MPESA_SEND = [[100,0],[500,7],[1000,13],[1500,23],[2500,33],[3500,53],[5000,57],[7500,78],[10000,90],[15000,100],[20000,105],[250000,108]];
+  const MPESA_OUT  = [[100,11],[2500,29],[3500,52],[5000,69],[7500,87],[10000,115],[15000,167],[20000,185],[35000,197],[50000,278],[250000,309]];
+  // min/max = per-transfer limits; a rail is left out when the amount is outside them.
+  // eg = a typical amount to start from, roughly US$150–250 in local currency
+  const railsFor = (code, a)=>DOMESTIC[code].rails.filter(r=>a>=(r.min||0) && a<=(r.max||Infinity));
+  const DOMESTIC = {
+    PK:{ eg:50000, name:"Pakistan", flag:"🇵🇰", cur:"PKR", region:"Asia", rails:[
+      { name:"Raast", fee:flat(0), speed:"instant", note:"free for customers (State Bank rule)" },
+      { name:"IBFT bank transfer", fee:pct(0.1,0,200), speed:"instant", note:"0.1%, max Rs200, once past the free Rs25,000 a month" } ]},
+    IN:{ eg:20000, name:"India", flag:"🇮🇳", cur:"INR", region:"Asia", rails:[
+      { name:"UPI", max:100000, fee:flat(0), speed:"instant", note:"free; usually limited to ₹1 lakh a day" },
+      { name:"NEFT", fee:flat(0), speed:"within hours", note:"free online at most banks" },
+      { name:"IMPS", fee:flat(5), speed:"instant", note:"about ₹2.50–15 by bank and amount" } ]},
+    BD:{ eg:20000, name:"Bangladesh", flag:"🇧🇩", cur:"BDT", region:"Asia", rails:[
+      { name:"Bank app transfer (NPSB)", fee:pct(0.15), speed:"instant", note:"up to 0.15% (Bangladesh Bank cap)" },
+      { name:"bKash to bKash", fee:(a)=>a>25000?10:5, speed:"instant", note:"৳5, or ৳10 above ৳25,000; cash-out not included" },
+      { name:"bKash to bank", min:300, max:25000, fee:pct(0.85), speed:"instant", note:"0.85% via NPSB" } ]},
+    PH:{ eg:10000, name:"Philippines", flag:"🇵🇭", cur:"PHP", region:"Asia", rails:[
+      { name:"InstaPay", fee:flat(0), speed:"instant", note:"free at most banks; a few charge ₱10–15" },
+      { name:"PESONet", fee:flat(0), speed:"same or next day", note:"free at most banks" },
+      { name:"E-wallet to bank", fee:flat(15), speed:"instant", note:"about ₱15 from GCash or Maya" } ]},
+    ID:{ eg:3000000, name:"Indonesia", flag:"🇮🇩", cur:"IDR", region:"Asia", rails:[
+      { name:"BI-FAST", max:250000000, fee:flat(2500), speed:"instant", note:"Rp2,500 (Bank Indonesia cap)" },
+      { name:"Online transfer (ATM network)", max:50000000, fee:flat(6500), speed:"instant", note:"Rp6,500 typical" },
+      { name:"RTGS", min:100000001, fee:flat(30000), speed:"same day", note:"Rp25,000–30,000; for amounts above Rp100 million" } ]},
+    TH:{ eg:5000, name:"Thailand", flag:"🇹🇭", cur:"THB", region:"Asia", rails:[
+      { name:"PromptPay", fee:flat(0), speed:"instant", note:"free in banking apps" } ]},
+    AE:{ eg:1000, name:"United Arab Emirates", flag:"🇦🇪", cur:"AED", region:"Asia", rails:[
+      { name:"Aani instant payment", fee:flat(0), speed:"instant", note:"free at most banks" },
+      { name:"Local bank transfer", fee:flat(1.05), speed:"same day", note:"AED 0–1.05 online by bank" } ]},
+    NG:{ eg:200000, name:"Nigeria", flag:"🇳🇬", cur:"NGN", region:"Africa", rails:[
+      { name:"Bank transfer (NIP)", fee:(a)=>(a<=5000?10:a<=50000?25:50)*1.075 + (a>=10000?50:0), speed:"instant", note:"₦10–50 + VAT, plus ₦50 stamp duty from ₦10,000" },
+      { name:"Fintech app (free transfers)", fee:(a)=>a>=10000?50:0, speed:"instant", note:"only the ₦50 stamp duty from ₦10,000; free allowances vary by app" } ]},
+    KE:{ eg:20000, name:"Kenya", flag:"🇰🇪", cur:"KES", region:"Africa", rails:[
+      { name:"M-Pesa send", max:250000, fee:tiers(MPESA_SEND), speed:"instant", note:"Safaricom tariff; recipient keeps it in M-Pesa" },
+      { name:"M-Pesa send + agent cash-out", max:250000, fee:(a)=>tiers(MPESA_SEND)(a)+tiers(MPESA_OUT)(a), speed:"instant", note:"Safaricom tariff, including the withdrawal fee" } ]},
+    GH:{ eg:2000, name:"Ghana", flag:"🇬🇭", cur:"GHS", region:"Africa", rails:[
+      { name:"MTN MoMo send", fee:pct(0.75,0,7.5), speed:"instant", note:"0.75%, max GH₵7.50; no E-Levy since April 2025" },
+      { name:"MTN MoMo send + cash-out", fee:(a)=>pct(0.75,0,7.5)(a)+(a<50?0.5:Math.min(a*0.01,20)), speed:"instant", note:"adds 1% cash-out, max GH₵20" } ]},
+    ZA:{ eg:3000, name:"South Africa", flag:"🇿🇦", cur:"ZAR", region:"Africa", rails:[
+      { name:"Standard EFT", fee:flat(1), speed:"1–2 days", note:"free to about R2 on most digital accounts" },
+      { name:"PayShap", fee:flat(7), speed:"instant", note:"R1–10 by bank; some banks charge more on large amounts" },
+      { name:"Immediate payment (RTC)", fee:(a)=>a<3000?10:45, speed:"instant", note:"R7–10 for small amounts, R40–50 for larger ones" } ]},
+    EG:{ eg:10000, name:"Egypt", flag:"🇪🇬", cur:"EGP", region:"Africa", rails:[
+      { name:"InstaPay", max:70000, fee:pct(0.1,0.5,20), speed:"instant", note:"0.1%, min EGP 0.50, max EGP 20; EGP 70,000 per transfer" } ]},
+    GB:{ eg:200, name:"United Kingdom", flag:"🇬🇧", cur:"GBP", region:"Europe", rails:[
+      { name:"Faster Payments", fee:flat(0), speed:"instant", note:"free for personal accounts" },
+      { name:"CHAPS", fee:flat(20), speed:"same day", note:"about £15–30; for very large payments" } ]},
+    EU:{ eg:200, name:"Eurozone", flag:"🇪🇺", cur:"EUR", region:"Europe", rails:[
+      { name:"SEPA Instant", fee:flat(0), speed:"instant", note:"must cost no more than a standard transfer (EU rule); usually free" },
+      { name:"SEPA transfer", fee:flat(0), speed:"next day", note:"usually free online" } ]},
+    US:{ eg:200, name:"United States", flag:"🇺🇸", cur:"USD", region:"Americas", rails:[
+      { name:"Zelle", fee:flat(0), speed:"minutes", note:"free in most banking apps; bank limits apply" },
+      { name:"ACH transfer", fee:flat(0), speed:"1–3 days", note:"usually free" },
+      { name:"Venmo / Cash App + instant cash-out", fee:pct(1.75,0.25,25), speed:"minutes", note:"1.75% instant-transfer fee, max $25; free if the recipient waits 1–3 days" },
+      { name:"Domestic wire", fee:flat(25), speed:"same day", note:"about $15–35 by bank" } ]},
+    CA:{ eg:300, name:"Canada", flag:"🇨🇦", cur:"CAD", region:"Americas", rails:[
+      { name:"Interac e-Transfer", fee:flat(0), speed:"minutes", note:"free on most accounts; up to C$1.50 on basic ones" } ]},
+    MX:{ eg:4000, name:"Mexico", flag:"🇲🇽", cur:"MXN", region:"Americas", rails:[
+      { name:"SPEI", fee:flat(0), speed:"instant", note:"free in most banking apps; a few charge MX$3–8" } ]},
+    BR:{ eg:1000, name:"Brazil", flag:"🇧🇷", cur:"BRL", region:"Americas", rails:[
+      { name:"Pix", fee:flat(0), speed:"instant", note:"free for individuals" },
+      { name:"TED", fee:flat(10), speed:"same day", note:"free to about R$20 by bank" } ]},
+    AR:{ eg:200000, name:"Argentina", flag:"🇦🇷", cur:"ARS", region:"Americas", rails:[
+      { name:"Instant transfer (CBU/CVU)", fee:flat(0), speed:"instant", note:"free for individuals" } ]},
+    AU:{ eg:300, name:"Australia", flag:"🇦🇺", cur:"AUD", region:"Oceania", rails:[
+      { name:"PayID / Osko", fee:flat(0), speed:"instant", note:"free for personal accounts" } ]},
+    NZ:{ eg:300, name:"New Zealand", flag:"🇳🇿", cur:"NZD", region:"Oceania", rails:[
+      { name:"Bank transfer", fee:flat(0), speed:"within hours", note:"free online" } ]}
+  };
+
   const $ = (id)=>document.getElementById(id);
   const statusEl = $("status");
   const fmt = (n,c)=>new Intl.NumberFormat(undefined,{style:"currency",currency:c,maximumFractionDigits:2}).format(n);
   const fmt0 = (n,c)=>new Intl.NumberFormat(undefined,{style:"currency",currency:c,maximumFractionDigits:0}).format(n);
   const fmtNum = (n,dp=4)=>new Intl.NumberFormat(undefined,{minimumFractionDigits:dp,maximumFractionDigits:dp}).format(n);
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function countUp(el, target, c, dur=900){
-    if(reduce){ el.textContent=fmt0(target,c); return; }
+  function countUp(el, target, c, f=fmt0, dur=900){
+    if(reduce){ el.textContent=f(target,c); return; }
     const t0=performance.now();
     (function tick(now){
       const t=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-t,3);
-      el.textContent=fmt0(target*e,c);
-      if(t<1) requestAnimationFrame(tick); else el.textContent=fmt0(target,c);
+      el.textContent=f(target*e,c);
+      if(t<1) requestAnimationFrame(tick); else el.textContent=f(target,c);
     })(t0);
   }
 
@@ -528,9 +620,22 @@
     }catch(e){ return []; }
   }
 
+  let domestic = false;
+  function setMode(dom){
+    domestic = dom;
+    document.body.classList.toggle("domestic", dom);
+    $("modeIntl").classList.toggle("on", !dom);
+    $("modeDom").classList.toggle("on", dom);
+    $("amount").value = dom ? DOMESTIC[$("country").value].eg : 1000; // the currency changes, so start from a typical amount
+    compare();
+  }
+
   async function compare(){
     const amount = parseFloat($("amount").value);
-    const from = $("from").value, to = $("to").value;
+    const dom = domestic ? $("country").value : null;
+    // domestic: one currency; we only need its USD rate to price network fees
+    const from = dom ? DOMESTIC[dom].cur : $("from").value;
+    const to = dom ? (from==="USD" ? "EUR" : "USD") : $("to").value;
     statusEl.classList.remove("err");
 
     const invalid = (msg)=>{
@@ -541,15 +646,17 @@
     };
     if(!amount || amount<=0){ invalid("Enter an amount greater than 0."); return; }
     if(from===to){ invalid("Pick two different currencies."); return; }
+    if(dom && !railsFor(dom, amount).length){ invalid(`That amount is above the per-transfer limit of the ${DOMESTIC[dom].name} rails we list. Try a smaller amount.`); return; }
 
     const btn = $("compareBtn");
     btn.disabled = true; btn.classList.add("loading");
     $("btnLabel").textContent = "Scanning routes…";
-    statusEl.textContent = "Fetching live mid-market rate…";
+    statusEl.textContent = dom ? "Pricing local rails…" : "Fetching live mid-market rate…";
     const stopLoading = ()=>{ btn.classList.remove("loading"); btn.disabled=false; $("btnLabel").textContent="Compare rates"; };
     const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-    const [res, quotes] = await Promise.all([ fetchRate(from,to), fetchQuotes(from,to,amount), sleep(750) ]);
+    const [res, quotes] = await Promise.all([ fetchRate(from,to), dom ? [] : fetchQuotes(from,to,amount), sleep(750) ]);
+    if(dom !== (domestic ? $("country").value : null)){ stopLoading(); return; } // mode or country changed while loading
     if(!res || !res.usdRate){
       statusEl.classList.add("err");
       statusEl.textContent = snap
@@ -558,7 +665,9 @@
       stopLoading();
       return;
     }
-    snap = { mid:res.mid, usdRate:res.usdRate, from, to, amount, updated:res.updated, quotes };
+    snap = dom
+      ? { mid:1, usdRate:res.usdRate, from, to:from, amount, updated:res.updated, quotes, dom }
+      : { mid:res.mid, usdRate:res.usdRate, from, to, amount, updated:res.updated, quotes };
     statusEl.textContent = "";
     render(true);
     stopLoading();
@@ -580,17 +689,39 @@
     return (useLive ? quotes : []).concat(modelled).map(r=>({ ...r, lostVsReal:(amount*mid) - r.received }));
   }
 
+  // Domestic: no FX. Local rails cost their fee; crypto costs the buy cost, the network fee and the cash-out spread.
+  function buildDomesticRows(amount, usdRate, cryptoSpread, onramp, code){
+    const local = railsFor(code, amount).map(r=>{
+      const fee = Math.min(amount, r.fee(amount));
+      return { name:r.name, type:"fiat", tag:"local", fee, received:amount-fee, detail:`${r.speed} · ${r.note}` };
+    });
+    const crypto = PROVIDERS.filter(p=>p.type==="crypto").map(p=>{
+      const fee = p.feeFlat/usdRate + amount*(onramp/100);
+      const received = Math.max(0,(amount-fee)*(1 - cryptoSpread/100));
+      return { ...p, fee, received, detail:"minutes · buy cost + network fee + cash-out spread" };
+    });
+    return local.concat(crypto).map(r=>({ ...r, lostVsReal:amount - r.received }));
+  }
+
   function render(animate){
     const cryptoSpread = parseFloat($("spread").value);
     const onramp = parseFloat($("onramp").value);
     $("spreadVal").textContent = cryptoSpread.toFixed(1) + "%";
     $("onrampVal").textContent = onramp.toFixed(1) + "%";
     if(!snap) return;
-    const { mid, usdRate, from, to, amount, updated, quotes } = snap;
+    const { mid, usdRate, from, to, amount, updated, quotes, dom } = snap;
 
-    const rows = buildRows(amount, mid, usdRate, cryptoSpread, onramp, quotes);
+    const rows = dom ? buildDomesticRows(amount, usdRate, cryptoSpread, onramp, dom)
+                     : buildRows(amount, mid, usdRate, cryptoSpread, onramp, quotes);
+    const money = dom ? fmt : fmt0; // domestic fees are small, so show decimals
+    const side = dom ? "local" : "fiat"; // what the non-crypto options are called
+    $("rlMeta").textContent = dom
+      ? "Bars show what each route costs in fees — shorter is better."
+      : "Bars show what's lost to fees + FX margin vs the real mid-market rate — shorter is better.";
     const live = rows.some(r=>r.live);
-    $("approxNote").innerHTML = live
+    $("approxNote").innerHTML = dom
+      ? `<span class="approx-badge">≈ Approximate</span> Domestic fees are typical or regulated figures for ${esc(DOMESTIC[dom].name)}, not live quotes. They vary by bank, account type and free monthly allowances. Always verify before sending.`
+      : live
       ? `<span class="approx-badge">Quoted</span> Fiat rows are provider quotes for this amount, collected by Wise's comparison service on the dates shown. Crypto rows are estimates built from the two sliders above. Always verify before sending.`
       : `<span class="approx-badge">≈ Approximate</span> No provider quotes are available for this corridor, so fees &amp; margins are researched estimates and vary by amount, corridor &amp; method. Always verify before sending.`;
     rows.sort((a,b)=>b.received-a.received); // best first
@@ -600,8 +731,10 @@
     const maxLost = Math.max(...rows.map(r=>r.lostVsReal), 1);
 
     // worst-case leak
-    if(animate) countUp($("lossNum"), worst.lostVsReal, to); else $("lossNum").textContent = fmt0(worst.lostVsReal, to);
-    $("lossSub").textContent = `That's the gap vs the real rate if you use ${worst.name} — the most expensive option for this transfer.`;
+    if(animate) countUp($("lossNum"), worst.lostVsReal, to, money); else $("lossNum").textContent = money(worst.lostVsReal, to);
+    $("lossSub").textContent = dom
+      ? `That's what ${worst.name} costs in fees — the most expensive option for this transfer.`
+      : `That's the gap vs the real rate if you use ${worst.name} — the most expensive option for this transfer.`;
 
     // recommendation: crypto vs fiat
     const cryptoWins = bestCrypto.received > bestFiat.received;
@@ -612,27 +745,31 @@
     if(tie){
       $("recoBadge").textContent = "Toss-up";
       $("recoVerdict").textContent = `Near-tie — ${bestFiat.name} ≈ ${bestCrypto.name}.`;
-      $("recoDetail").textContent = `Fiat and crypto arrive within a rounding error here. Choose on speed, convenience, trust and payout method.`;
+      $("recoDetail").textContent = `${dom?"Local rails":"Fiat"} and crypto arrive within a rounding error here. Choose on speed, convenience, trust and payout method.`;
     } else {
-      $("recoBadge").textContent = cryptoWins ? "Crypto" : "Fiat";
-      $("recoVerdict").textContent = cryptoWins ? `Crypto delivers more — ${winner.name}.` : `Fiat delivers more — ${winner.name}.`;
-      $("recoDetail").textContent = `${winner.name} arrives with ${fmt0(gap, to)} more than the best ${cryptoWins?"fiat":"crypto"} option (${loser.name}).`;
+      $("recoBadge").textContent = cryptoWins ? "Crypto" : (dom ? "Local" : "Fiat");
+      $("recoVerdict").textContent = cryptoWins ? `Crypto delivers more — ${winner.name}.` : `${dom?"A local rail":"Fiat"} delivers more — ${winner.name}.`;
+      $("recoDetail").textContent = `${winner.name} arrives with ${money(gap, to)} more than the best ${cryptoWins?side:"crypto"} option (${loser.name}).`;
     }
-    if(animate){ countUp($("vsFiat"), bestFiat.received, to); countUp($("vsCrypto"), bestCrypto.received, to); }
-    else { $("vsFiat").textContent = fmt0(bestFiat.received, to); $("vsCrypto").textContent = fmt0(bestCrypto.received, to); }
+    if(animate){ countUp($("vsFiat"), bestFiat.received, to, money); countUp($("vsCrypto"), bestCrypto.received, to, money); }
+    else { $("vsFiat").textContent = money(bestFiat.received, to); $("vsCrypto").textContent = money(bestCrypto.received, to); }
 
-    // delivery race
+    $("vsFiatK").textContent = dom ? "Best local" : "Best fiat";
+
+    // delivery race (international only)
+    if(!dom){
     // most expensive quoted bank; if no bank was quoted, our bank-wire estimate
     const bankRow = rows.filter(r=>r.bank).pop() || buildRows(amount, mid, usdRate, cryptoSpread, onramp, []).find(r=>r.bank);
     $("raceNameC").textContent = bestCrypto.name;
     $("raceNameF").textContent = bestFiat.name;
-    $("raceAmtC").textContent = fmt0(bestCrypto.received, to);
-    $("raceAmtF").textContent = fmt0(bestFiat.received, to);
-    $("raceAmtS").textContent = fmt0(bankRow.received, to);
+    $("raceAmtC").textContent = money(bestCrypto.received, to);
+    $("raceAmtF").textContent = money(bestFiat.received, to);
+    $("raceAmtS").textContent = money(bankRow.received, to);
+    }
 
     // rate pill
-    $("ratePill").textContent = `1 ${from} = ${fmtNum(mid)} ${to}`;
-    $("livePill").innerHTML = `<span class="dot"></span>Rate updated ${updated}`;
+    $("ratePill").textContent = dom ? `${DOMESTIC[dom].name} · no exchange rate` : `1 ${from} = ${fmtNum(mid)} ${to}`;
+    $("livePill").innerHTML = `<span class="dot"></span>Rate updated ${esc(updated)}`;
 
     // ranked rows
     const rowsEl = $("rows");
@@ -647,15 +784,15 @@
       else if(r===worst) pill = `<span class="r-pill">Worst</span>`;
       div.innerHTML =
         `<div class="r-name">
-           <span class="tag ${r.type}">${r.type}</span>
+           <span class="tag ${r.type}">${r.tag||r.type}</span>
            <span class="nm">${esc(r.name)}</span>${pill}
          </div>
          <div class="bar-cell">
            <div class="bar-track"><div class="bar-fill" data-w="${barW}" style="width:0"></div></div>
-           <div class="bar-lab">${r.lostVsReal>=0 ? "Lost "+fmt0(r.lostVsReal, to) : "Beats mid-market by "+fmt0(-r.lostVsReal, to)} · fee ${fmt(r.fee, from)} · rate ${fmtNum(r.providerRate)} · ${r.live ? "quoted "+esc(r.quoted) : "estimate"}</div>
+           <div class="bar-lab">${dom ? `Costs ${fmt(r.lostVsReal, to)} · ${esc(r.detail)} · estimate` : `${r.lostVsReal>=0 ? "Lost "+money(r.lostVsReal, to) : "Beats mid-market by "+money(-r.lostVsReal, to)} · fee ${fmt(r.fee, from)} · rate ${fmtNum(r.providerRate)} · ${r.live ? "quoted "+esc(r.quoted) : "estimate"}`}</div>
          </div>
          <div class="r-amt">
-           <div class="big">${fmt0(r.received, to)}</div>
+           <div class="big">${money(r.received, to)}</div>
            <div class="r-sub">recipient gets</div>
          </div>`;
       rowsEl.appendChild(div);
@@ -676,6 +813,14 @@
   $("compareBtn").addEventListener("click", compare);
   ["amount","from","to"].forEach(id=>$(id).addEventListener("keydown",e=>{ if(e.key==="Enter") compare(); }));
   ["spread","onramp"].forEach(id=>$(id).addEventListener("input", ()=>render(false))); // live re-rank as you adjust
+  $("modeIntl").addEventListener("click", ()=>setMode(false));
+  $("modeDom").addEventListener("click", ()=>setMode(true));
+  ["Asia","Africa","Europe","Americas","Oceania"].forEach(region=>{
+    const g = document.createElement("optgroup"); g.label = region;
+    Object.entries(DOMESTIC).filter(([,c])=>c.region===region).forEach(([code,c])=>g.appendChild(new Option(`${c.flag} ${c.name} (${c.cur})`, code)));
+    $("country").appendChild(g);
+  });
+  $("country").addEventListener("change", ()=>{ $("amount").value = DOMESTIC[$("country").value].eg; compare(); });
   window.addEventListener("load", compare);
 </script>
 </body>
