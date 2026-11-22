@@ -622,7 +622,8 @@
     else { $("vsFiat").textContent = fmt0(bestFiat.received, to); $("vsCrypto").textContent = fmt0(bestCrypto.received, to); }
 
     // delivery race
-    const bankRow = rows.filter(r=>r.bank).pop() || rows.filter(r=>r.type==="fiat").pop(); // most expensive bank
+    // most expensive quoted bank; if no bank was quoted, our bank-wire estimate
+    const bankRow = rows.filter(r=>r.bank).pop() || buildRows(amount, mid, usdRate, cryptoSpread, onramp, []).find(r=>r.bank);
     $("raceNameC").textContent = bestCrypto.name;
     $("raceNameF").textContent = bestFiat.name;
     $("raceAmtC").textContent = fmt0(bestCrypto.received, to);
