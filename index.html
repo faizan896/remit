@@ -360,6 +360,11 @@
         <input type="range" id="spread" min="0" max="4" step="0.1" value="0.5" />
         <span class="adv-val" id="spreadVal">0.5%</span>
       </div>
+      <label for="onramp" style="margin-top:14px">Cost to buy the stablecoin <span class="hint">— exchange fee or card markup when turning your money into USDT/USDC. Bank transfer is often under 1%; cards can be 2–4%.</span></label>
+      <div class="adv-row">
+        <input type="range" id="onramp" min="0" max="4" step="0.1" value="1" />
+        <span class="adv-val" id="onrampVal">1.0%</span>
+      </div>
     </div>
   </section>
 
@@ -398,12 +403,12 @@
         <span class="pill right" id="ratePill"></span>
       </div>
       <div class="rl-meta">Bars show what's lost to fees + FX margin vs the real mid-market rate — shorter is better.</div>
-      <div class="approx"><span class="approx-badge">≈ Approximate</span> The FX rate is live; provider fees &amp; margins are researched estimates and vary by amount, corridor &amp; method. Always verify before sending.</div>
+      <div class="approx" id="approxNote"></div>
       <div class="rows" id="rows"></div>
     </section>
 
     <p class="disclaimer" id="disclaimer">
-      Fiat fees and margins are approximate and vary by amount, payment method and promotions. USDT figures assume a stablecoin pegged 1:1 to USD with a ~0.5% on/off-ramp spread plus each chain's typical 2026 network fee — Plasma sponsors gas for zero-fee USDT transfers; Solana, Arbitrum and Monad (USDC — Monad has no USDT) are sub-cent; Tron ≈ $2; Ethereum ≈ $1.50–15 depending on gas. Because network fees are now tiny, the off-ramp spread (converting USDT to local cash) dominates crypto cost, and that spread varies by exchange, P2P market, KYC and corridor. Crypto also carries volatility, custody and regulatory considerations that fiat doesn't. The USDT off-ramp spread is adjustable in the calculator — set it to your corridor's real rate. Verify with each provider before sending. Live mid-market rates from open.er-api.com (with a backup source). remit is an independent comparison tool, not affiliated with any provider listed.
+      Where available, fiat rows are provider quotes for your amount collected by Wise's public comparison service (Wise is itself one of the providers listed); they can be a few days old and may include new-customer promotions. For corridors that service doesn't cover, fiat fees and margins are our own approximations. USDT figures assume a stablecoin pegged 1:1 to USD, a cost to buy it (default 1%), a ~0.5% off-ramp spread, plus each chain's typical 2026 network fee — Plasma sponsors gas for zero-fee USDT transfers; Solana, Arbitrum and Monad (USDC — Monad has no USDT) are sub-cent; Tron ≈ $2; Ethereum ≈ $1.50–15 depending on gas. Because network fees are now tiny, the off-ramp spread (converting USDT to local cash) dominates crypto cost, and that spread varies by exchange, P2P market, KYC and corridor. Crypto also carries volatility, custody and regulatory considerations that fiat doesn't. The buy cost and off-ramp spread are adjustable in the calculator — set them to your corridor's real rates. Verify with each provider before sending. Live mid-market rates from open.er-api.com (with a backup source). remit is an independent comparison tool, not affiliated with any provider listed.
     </p>
   </div>
 
@@ -414,11 +419,13 @@
       How we estimate these numbers
       <svg class="ic chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </summary>
-    <p>The exchange rate is the live <strong>mid-market rate</strong> — the real rate currencies trade at. Everything else is a transparent, researched estimate so you can see how the cost breaks down. These are an educational guide, <strong>not live quotes</strong>; confirm with each provider before sending.</p>
+    <p>The exchange rate is the live <strong>mid-market rate</strong> — the real rate currencies trade at. Fiat rows marked <strong>quoted</strong> are real provider quotes for your amount; rows marked <strong>estimate</strong> are our own researched assumptions. Either way this is a guide, not an offer — confirm with each provider before sending.</p>
+    <h4>Fiat quotes</h4>
+    <p>For corridors it covers, we load each provider's fee and exchange rate for your exact amount from <a href="https://wise.com/gb/compare/" target="_blank" rel="noopener">Wise's public comparison service</a> and show the date each quote was collected. Keep in mind that Wise is one of the providers being compared, quotes can be a few days old, and some reflect new-customer promotions. When a provider has quotes for several sending countries we use the middle one. If the service has no data for a corridor, we fall back to the estimates below.</p>
     <h4>The formula</h4>
     <p><code>received = (amount − fee) × midRate × (1 − margin%)</code><br>
        <code>lost = amount × midRate − received</code></p>
-    <h4>Fiat assumptions (2026 research)</h4>
+    <h4>Fiat estimates (used only when no quotes are available)</h4>
     <ul>
       <li><strong>Wise</strong> — 0% FX margin + ~0.5% fee (it genuinely uses the mid-market rate)</li>
       <li><strong>Remitly</strong> — ~1.5% margin + $1.99</li>
@@ -427,10 +434,10 @@
       <li><strong>Bank wire</strong> — ~4% margin + $30</li>
     </ul>
     <h4>Crypto (USDT) assumptions</h4>
-    <p>USDT is pegged ~1:1 to USD, so a transfer tracks the real cross-rate. Cost = the chain's network fee (Plasma ~free; Solana, Arbitrum, Monad sub-cent — Monad uses USDC, as it has no USDT; Tron ≈ $2; Ethereum ≈ $1.50–15) plus an <strong>off-ramp spread</strong> to cash out into local currency — that's the slider in the calculator, defaulted to 0.5%. Set it to your corridor's real P2P/exchange rate to see the honest comparison.</p>
+    <p>USDT is pegged ~1:1 to USD, so a transfer tracks the real cross-rate. Cost = the chain's network fee (Plasma ~free; Solana, Arbitrum, Monad sub-cent — Monad uses USDC, as it has no USDT; Tron ≈ $2; Ethereum ≈ $1.50–15) plus two costs you can adjust in the calculator: the <strong>cost to buy the stablecoin</strong> with your money (default 1%) and an <strong>off-ramp spread</strong> to cash out into local currency (default 0.5%). Set both to your corridor's real exchange/P2P rates to see the honest comparison.</p>
     <div class="caution"><span class="approx-badge">Heads up</span> Crypto isn't risk-free. Off-ramp spreads in restricted corridors can be far higher than 0.5%, and USDT involves exchange/P2P trust, KYC, edge volatility, and a legal status that varies by country. Check what's legal and available where you are before relying on it.</div>
     <h4>Sources</h4>
-    <p>Rates: <a href="https://open.er-api.com" target="_blank" rel="noopener">open.er-api.com</a> with a <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">currency-api</a> fallback. Provider norms: published Wise, Remitly, Western Union and Xoom fee guides, and 2026 USDT network-fee comparisons.</p>
+    <p>Rates: <a href="https://open.er-api.com" target="_blank" rel="noopener">open.er-api.com</a> with a <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">currency-api</a> fallback. Fiat quotes: Wise comparison service. Fallback provider norms: published Wise, Remitly, Western Union and Xoom fee guides, and 2026 USDT network-fee comparisons.</p>
   </details>
 
 </div>
@@ -493,6 +500,34 @@
     return null;
   }
 
+  const esc = (s)=>String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // Real provider quotes for this corridor and amount. Returns [] when the corridor isn't covered.
+  async function fetchQuotes(from, to, amount){
+    try{
+      const ctl = new AbortController();
+      const timer = setTimeout(()=>ctl.abort(), 6000);
+      const r = await fetch(`https://api.wise.com/v4/comparisons?sourceCurrency=${from}&targetCurrency=${to}&sendAmount=${amount}`, { signal:ctl.signal });
+      clearTimeout(timer);
+      const d = await r.json();
+      const out = [];
+      (d.providers||[]).forEach(p=>{
+        const qs = (p.quotes||[]).filter(q=>q.rate>0 && q.receivedAmount>0 && q.fee>=0)
+                                 .sort((a,b)=>a.receivedAmount-b.receivedAmount);
+        if(!qs.length || !p.name) return;
+        const q = qs[Math.floor((qs.length-1)/2)]; // middle quote across sending countries
+        const day = q.dateCollected ? new Date(q.dateCollected) : null;
+        out.push({ name:p.name, type:"fiat", bank:p.type==="bank", live:true, fee:q.fee, providerRate:q.rate,
+                   received:q.receivedAmount,
+                   quoted: day && !isNaN(day) ? day.toLocaleDateString(undefined,{day:"numeric",month:"short"}) : "" });
+      });
+      if(out.length < 2) return [];
+      out.sort((a,b)=>b.received-a.received);
+      // keep the list readable: the best seven plus the most expensive one
+      return out.length > 8 ? out.slice(0,7).concat(out[out.length-1]) : out;
+    }catch(e){ return []; }
+  }
+
   async function compare(){
     const amount = parseFloat($("amount").value);
     const from = $("from").value, to = $("to").value;
@@ -514,7 +549,7 @@
     const stopLoading = ()=>{ btn.classList.remove("loading"); btn.disabled=false; $("btnLabel").textContent="Compare rates"; };
     const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-    const [res] = await Promise.all([ fetchRate(from,to), sleep(750) ]);
+    const [res, quotes] = await Promise.all([ fetchRate(from,to), fetchQuotes(from,to,amount), sleep(750) ]);
     if(!res || !res.usdRate){
       statusEl.classList.add("err");
       statusEl.textContent = snap
@@ -523,32 +558,41 @@
       stopLoading();
       return;
     }
-    snap = { mid:res.mid, usdRate:res.usdRate, from, to, amount, updated:res.updated };
+    snap = { mid:res.mid, usdRate:res.usdRate, from, to, amount, updated:res.updated, quotes };
     statusEl.textContent = "";
     render(true);
     stopLoading();
   }
 
-  // Build provider rows; crypto margin comes from the off-ramp spread slider.
+  // Build provider rows. Fiat rows are live quotes when the corridor has them, else our estimates.
+  // Crypto pays the on-ramp cost up front and the off-ramp spread on the rate.
   // Flat fees are defined in USD and converted to the send currency (usdRate = USD per 1 FROM).
-  function buildRows(amount, mid, usdRate, cryptoSpread){
-    return PROVIDERS.map(p=>{
-      const margin = p.type==="crypto" ? cryptoSpread : p.marginPct;
-      const fee = ("feeFlat" in p) ? p.feeFlat/usdRate : amount*(p.feePct/100);
+  function buildRows(amount, mid, usdRate, cryptoSpread, onramp, quotes){
+    const useLive = quotes && quotes.length > 0;
+    const modelled = PROVIDERS.filter(p=>p.type==="crypto" || !useLive).map(p=>{
+      const crypto = p.type==="crypto";
+      const margin = crypto ? cryptoSpread : p.marginPct;
+      const fee = (("feeFlat" in p) ? p.feeFlat/usdRate : amount*(p.feePct/100)) + (crypto ? amount*(onramp/100) : 0);
       const providerRate = mid*(1 - margin/100);
       const received = Math.max(0,(amount-fee)*providerRate);
-      const lostVsReal = (amount*mid) - received;
-      return { ...p, margin, fee, providerRate, received, lostVsReal };
+      return { ...p, bank:/^Bank/.test(p.name), fee, providerRate, received };
     });
+    return (useLive ? quotes : []).concat(modelled).map(r=>({ ...r, lostVsReal:(amount*mid) - r.received }));
   }
 
   function render(animate){
     const cryptoSpread = parseFloat($("spread").value);
+    const onramp = parseFloat($("onramp").value);
     $("spreadVal").textContent = cryptoSpread.toFixed(1) + "%";
+    $("onrampVal").textContent = onramp.toFixed(1) + "%";
     if(!snap) return;
-    const { mid, usdRate, from, to, amount, updated } = snap;
+    const { mid, usdRate, from, to, amount, updated, quotes } = snap;
 
-    const rows = buildRows(amount, mid, usdRate, cryptoSpread);
+    const rows = buildRows(amount, mid, usdRate, cryptoSpread, onramp, quotes);
+    const live = rows.some(r=>r.live);
+    $("approxNote").innerHTML = live
+      ? `<span class="approx-badge">Quoted</span> Fiat rows are provider quotes for this amount, collected by Wise's comparison service on the dates shown. Crypto rows are estimates built from the two sliders above. Always verify before sending.`
+      : `<span class="approx-badge">≈ Approximate</span> No provider quotes are available for this corridor, so fees &amp; margins are researched estimates and vary by amount, corridor &amp; method. Always verify before sending.`;
     rows.sort((a,b)=>b.received-a.received); // best first
     const best = rows[0], worst = rows[rows.length-1];
     const bestFiat = rows.find(r=>r.type==="fiat");
@@ -578,7 +622,8 @@
     else { $("vsFiat").textContent = fmt0(bestFiat.received, to); $("vsCrypto").textContent = fmt0(bestCrypto.received, to); }
 
     // delivery race
-    const bankRow = rows.find(r=>/^Bank/.test(r.name)) || worst;
+    // most expensive quoted bank; if no bank was quoted, our bank-wire estimate
+    const bankRow = rows.filter(r=>r.bank).pop() || buildRows(amount, mid, usdRate, cryptoSpread, onramp, []).find(r=>r.bank);
     $("raceNameC").textContent = bestCrypto.name;
     $("raceNameF").textContent = bestFiat.name;
     $("raceAmtC").textContent = fmt0(bestCrypto.received, to);
@@ -603,11 +648,11 @@
       div.innerHTML =
         `<div class="r-name">
            <span class="tag ${r.type}">${r.type}</span>
-           <span class="nm">${r.name}</span>${pill}
+           <span class="nm">${esc(r.name)}</span>${pill}
          </div>
          <div class="bar-cell">
            <div class="bar-track"><div class="bar-fill" data-w="${barW}" style="width:0"></div></div>
-           <div class="bar-lab">Lost ${fmt0(r.lostVsReal, to)} · fee ${fmt(r.fee, from)} · rate ${fmtNum(r.providerRate)}</div>
+           <div class="bar-lab">${r.lostVsReal>=0 ? "Lost "+fmt0(r.lostVsReal, to) : "Beats mid-market by "+fmt0(-r.lostVsReal, to)} · fee ${fmt(r.fee, from)} · rate ${fmtNum(r.providerRate)} · ${r.live ? "quoted "+esc(r.quoted) : "estimate"}</div>
          </div>
          <div class="r-amt">
            <div class="big">${fmt0(r.received, to)}</div>
@@ -630,7 +675,7 @@
 
   $("compareBtn").addEventListener("click", compare);
   ["amount","from","to"].forEach(id=>$(id).addEventListener("keydown",e=>{ if(e.key==="Enter") compare(); }));
-  $("spread").addEventListener("input", ()=>render(false)); // live re-rank as you adjust the spread
+  ["spread","onramp"].forEach(id=>$(id).addEventListener("input", ()=>render(false))); // live re-rank as you adjust
   window.addEventListener("load", compare);
 </script>
 </body>
