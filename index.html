@@ -486,27 +486,29 @@
   const tiers = (t)=>(a)=>(t.find(([max])=>a<=max) || t[t.length-1])[1]; // [[up to, fee], …]
   const MPESA_SEND = [[100,0],[500,7],[1000,13],[1500,23],[2500,33],[3500,53],[5000,57],[7500,78],[10000,90],[15000,100],[20000,105],[250000,108]];
   const MPESA_OUT  = [[100,11],[2500,29],[3500,52],[5000,69],[7500,87],[10000,115],[15000,167],[20000,185],[35000,197],[50000,278],[250000,309]];
+  // min/max = per-transfer limits; a rail is left out when the amount is outside them.
   // eg = a typical amount to start from, roughly US$150–250 in local currency
+  const railsFor = (code, a)=>DOMESTIC[code].rails.filter(r=>a>=(r.min||0) && a<=(r.max||Infinity));
   const DOMESTIC = {
     PK:{ eg:50000, name:"Pakistan", flag:"🇵🇰", cur:"PKR", region:"Asia", rails:[
       { name:"Raast", fee:flat(0), speed:"instant", note:"free for customers (State Bank rule)" },
       { name:"IBFT bank transfer", fee:pct(0.1,0,200), speed:"instant", note:"0.1%, max Rs200, once past the free Rs25,000 a month" } ]},
     IN:{ eg:20000, name:"India", flag:"🇮🇳", cur:"INR", region:"Asia", rails:[
-      { name:"UPI", fee:flat(0), speed:"instant", note:"free; usually limited to ₹1 lakh a day" },
+      { name:"UPI", max:100000, fee:flat(0), speed:"instant", note:"free; usually limited to ₹1 lakh a day" },
       { name:"NEFT", fee:flat(0), speed:"within hours", note:"free online at most banks" },
       { name:"IMPS", fee:flat(5), speed:"instant", note:"about ₹2.50–15 by bank and amount" } ]},
     BD:{ eg:20000, name:"Bangladesh", flag:"🇧🇩", cur:"BDT", region:"Asia", rails:[
       { name:"Bank app transfer (NPSB)", fee:pct(0.15), speed:"instant", note:"up to 0.15% (Bangladesh Bank cap)" },
       { name:"bKash to bKash", fee:(a)=>a>25000?10:5, speed:"instant", note:"৳5, or ৳10 above ৳25,000; cash-out not included" },
-      { name:"bKash to bank", fee:pct(0.85), speed:"instant", note:"0.85% via NPSB" } ]},
+      { name:"bKash to bank", min:300, max:25000, fee:pct(0.85), speed:"instant", note:"0.85% via NPSB" } ]},
     PH:{ eg:10000, name:"Philippines", flag:"🇵🇭", cur:"PHP", region:"Asia", rails:[
       { name:"InstaPay", fee:flat(0), speed:"instant", note:"free at most banks; a few charge ₱10–15" },
       { name:"PESONet", fee:flat(0), speed:"same or next day", note:"free at most banks" },
       { name:"E-wallet to bank", fee:flat(15), speed:"instant", note:"about ₱15 from GCash or Maya" } ]},
     ID:{ eg:3000000, name:"Indonesia", flag:"🇮🇩", cur:"IDR", region:"Asia", rails:[
-      { name:"BI-FAST", fee:flat(2500), speed:"instant", note:"Rp2,500 (Bank Indonesia cap)" },
-      { name:"Online transfer (ATM network)", fee:flat(6500), speed:"instant", note:"Rp6,500 typical" },
-      { name:"RTGS", fee:flat(30000), speed:"same day", note:"Rp25,000–30,000; for amounts above Rp100 million" } ]},
+      { name:"BI-FAST", max:250000000, fee:flat(2500), speed:"instant", note:"Rp2,500 (Bank Indonesia cap)" },
+      { name:"Online transfer (ATM network)", max:50000000, fee:flat(6500), speed:"instant", note:"Rp6,500 typical" },
+      { name:"RTGS", min:100000001, fee:flat(30000), speed:"same day", note:"Rp25,000–30,000; for amounts above Rp100 million" } ]},
     TH:{ eg:5000, name:"Thailand", flag:"🇹🇭", cur:"THB", region:"Asia", rails:[
       { name:"PromptPay", fee:flat(0), speed:"instant", note:"free in banking apps" } ]},
     AE:{ eg:1000, name:"United Arab Emirates", flag:"🇦🇪", cur:"AED", region:"Asia", rails:[
@@ -516,8 +518,8 @@
       { name:"Bank transfer (NIP)", fee:(a)=>(a<=5000?10:a<=50000?25:50)*1.075 + (a>=10000?50:0), speed:"instant", note:"₦10–50 + VAT, plus ₦50 stamp duty from ₦10,000" },
       { name:"Fintech app (free transfers)", fee:(a)=>a>=10000?50:0, speed:"instant", note:"only the ₦50 stamp duty from ₦10,000; free allowances vary by app" } ]},
     KE:{ eg:20000, name:"Kenya", flag:"🇰🇪", cur:"KES", region:"Africa", rails:[
-      { name:"M-Pesa send", fee:tiers(MPESA_SEND), speed:"instant", note:"Safaricom tariff; recipient keeps it in M-Pesa" },
-      { name:"M-Pesa send + agent cash-out", fee:(a)=>tiers(MPESA_SEND)(a)+tiers(MPESA_OUT)(a), speed:"instant", note:"Safaricom tariff, including the withdrawal fee" } ]},
+      { name:"M-Pesa send", max:250000, fee:tiers(MPESA_SEND), speed:"instant", note:"Safaricom tariff; recipient keeps it in M-Pesa" },
+      { name:"M-Pesa send + agent cash-out", max:250000, fee:(a)=>tiers(MPESA_SEND)(a)+tiers(MPESA_OUT)(a), speed:"instant", note:"Safaricom tariff, including the withdrawal fee" } ]},
     GH:{ eg:2000, name:"Ghana", flag:"🇬🇭", cur:"GHS", region:"Africa", rails:[
       { name:"MTN MoMo send", fee:pct(0.75,0,7.5), speed:"instant", note:"0.75%, max GH₵7.50; no E-Levy since April 2025" },
       { name:"MTN MoMo send + cash-out", fee:(a)=>pct(0.75,0,7.5)(a)+(a<50?0.5:Math.min(a*0.01,20)), speed:"instant", note:"adds 1% cash-out, max GH₵20" } ]},
@@ -526,7 +528,7 @@
       { name:"PayShap", fee:flat(7), speed:"instant", note:"R1–10 by bank; some banks charge more on large amounts" },
       { name:"Immediate payment (RTC)", fee:(a)=>a<3000?10:45, speed:"instant", note:"R7–10 for small amounts, R40–50 for larger ones" } ]},
     EG:{ eg:10000, name:"Egypt", flag:"🇪🇬", cur:"EGP", region:"Africa", rails:[
-      { name:"InstaPay", fee:pct(0.1,0.5,20), speed:"instant", note:"0.1%, min EGP 0.50, max EGP 20; EGP 70,000 per transfer" } ]},
+      { name:"InstaPay", max:70000, fee:pct(0.1,0.5,20), speed:"instant", note:"0.1%, min EGP 0.50, max EGP 20; EGP 70,000 per transfer" } ]},
     GB:{ eg:200, name:"United Kingdom", flag:"🇬🇧", cur:"GBP", region:"Europe", rails:[
       { name:"Faster Payments", fee:flat(0), speed:"instant", note:"free for personal accounts" },
       { name:"CHAPS", fee:flat(20), speed:"same day", note:"about £15–30; for very large payments" } ]},
@@ -644,6 +646,7 @@
     };
     if(!amount || amount<=0){ invalid("Enter an amount greater than 0."); return; }
     if(from===to){ invalid("Pick two different currencies."); return; }
+    if(dom && !railsFor(dom, amount).length){ invalid(`That amount is above the per-transfer limit of the ${DOMESTIC[dom].name} rails we list. Try a smaller amount.`); return; }
 
     const btn = $("compareBtn");
     btn.disabled = true; btn.classList.add("loading");
@@ -688,7 +691,7 @@
 
   // Domestic: no FX. Local rails cost their fee; crypto costs the buy cost, the network fee and the cash-out spread.
   function buildDomesticRows(amount, usdRate, cryptoSpread, onramp, code){
-    const local = DOMESTIC[code].rails.map(r=>{
+    const local = railsFor(code, amount).map(r=>{
       const fee = Math.min(amount, r.fee(amount));
       return { name:r.name, type:"fiat", tag:"local", fee, received:amount-fee, detail:`${r.speed} · ${r.note}` };
     });
